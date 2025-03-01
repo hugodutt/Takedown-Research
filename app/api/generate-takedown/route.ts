@@ -1,76 +1,31 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+import { TakedownRequest } from '@/app/types/domain';
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
-    const { domain, ip, detectedBrand, indicators, whois, ipInfo, dns_records, primaryTarget, severity, templateType, phishing_indicators, html_analysis } = data;
+    const { url, whois_info } = await request.json() as TakedownRequest;
+    
+    const takedownText = `Dear Abuse Team,
 
-    // Preparar o prompt para o modelo
-    const prompt = `Gere um texto profissional de notificação e solicitação de takedown seguindo a estrutura abaixo.
-O texto deve ser cordial e direto, mantendo um tom profissional.
+I am writing to report a phishing website that is impersonating our brand and potentially harming users:
 
-Formato esperado:
-Para: [email de abuso]
-Assunto: Notificação de Phishing e Solicitação de Takedown - [domínio]
+URL: ${url}
 
-Prezados,
+This domain was registered through your services and is being used for malicious purposes. We kindly request the immediate suspension of this domain to protect users from potential fraud.
 
-[INTRODUÇÃO: Apresentação cordial e profissional]
+Registration Information:
+Registrar: ${whois_info.registrar || 'N/A'}
+Creation Date: ${whois_info.creation_date || 'N/A'}
+Expiration Date: ${whois_info.expiration_date || 'N/A'}
 
-[NOTIFICAÇÃO: Informar sobre a identificação do site malicioso, mencionando que é um phishing direcionado à marca ${detectedBrand?.name || 'identificada'}. 
-Incluir URL (${domain}) e IP (${ip})]
+Please take immediate action to suspend this domain. If you require any additional information, please don't hesitate to contact us.
 
-[EVIDÊNCIAS: Liste os indicadores de phishing detectados:
-${phishing_indicators?.join('\n') || 'Atividades maliciosas detectadas'}
-${html_analysis?.loginFields ? '- Formulários de login não autorizados detectados' : ''}
-${html_analysis?.brandImages ? '- Uso não autorizado de imagens da marca' : ''}
-${html_analysis?.securityIcons ? '- Uso indevido de símbolos de segurança' : ''}]
+Best regards,
+Brand Protection Team`;
 
-[SOLICITAÇÃO: Pedir a remoção imediata do conteúdo/site devido ao risco aos consumidores]
-
-[ENCERRAMENTO: Agradecer a atenção e se colocar à disposição]
-
-Atenciosamente,
-[Assinatura]
-
-DADOS DISPONÍVEIS:
-- Domínio: ${domain}
-- IP: ${ip}
-- Registrar: ${whois.registrar}
-- Marca Afetada: ${detectedBrand?.name || 'N/A'}
-- Severidade: ${severity || 'ALTA'}
-- Indicadores: ${indicators?.join(', ') || 'Atividades maliciosas detectadas'}
-- Email de Abuso: ${whois.registrar_abuse_contact_email}
-
-INSTRUÇÕES ESPECÍFICAS:
-1. Mantenha um tom cordial e profissional do início ao fim
-2. Enfatize que se trata de um phishing direcionado à marca
-3. Liste as evidências técnicas encontradas
-4. Destaque o risco aos consumidores
-5. Solicite a remoção imediata
-6. Use linguagem formal mas acessível`;
-
-    // Gerar o texto usando o modelo
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "gpt-3.5-turbo",
-      temperature: 0.7,
-      max_tokens: 500
-    });
-
-    const generatedText = completion.choices[0].message.content;
-
-    return NextResponse.json({ text: generatedText });
-  } catch (error: any) {
+    return NextResponse.json({ takedown_text: takedownText });
+  } catch (error: unknown) {
     console.error('Erro ao gerar texto:', error);
-    return NextResponse.json(
-      { error: error.message || 'Erro ao gerar texto de takedown' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erro ao gerar texto de takedown' }, { status: 500 });
   }
 }

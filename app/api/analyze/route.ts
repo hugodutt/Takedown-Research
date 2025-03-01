@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { extractDomain } from '@/utils/url';
 import OpenAI from 'openai';
+import { DomainAnalysis, WhoisInfo, IpInfo, DnsRecords, DetectedBrand } from '@/app/types/domain';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -548,9 +549,9 @@ ${categories.behavioral.map((i: string) => `• ${i}`).join('\n')}` : ''}
 Análise gerada por sistema automatizado de detecção de ameaças.`;
 }
 
-export async function POST(request: Request) {
+async function analyzeUrl(url: string): Promise<DomainAnalysis> {
   try {
-    const data = await request.json();
+    const data = await request.json() as { url: string };
     const url = data.url;
     
     if (!url) {
@@ -797,4 +798,39 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request): Promise<NextResponse<DomainAnalysis>> {
+  try {
+    const { url } = await request.json() as { url: string };
+    const analysis = await analyzeUrl(url);
+    return NextResponse.json(analysis);
+  } catch (error) {
+    console.error('Erro no endpoint:', error);
+    return NextResponse.json({ error: 'Erro na análise' }, { status: 500 });
+  }
+}
+
+async function getDnsRecords(domain: string): Promise<DnsRecords> {
+  // ... existing code ...
+}
+
+async function getWhoisInfo(domain: string): Promise<WhoisInfo> {
+  // ... existing code ...
+}
+
+async function getIpInfo(ip: string): Promise<IpInfo> {
+  // ... existing code ...
+}
+
+async function detectBrand(url: string, content: string): Promise<DetectedBrand | undefined> {
+  // ... existing code ...
+}
+
+// Remove unused variables and add proper error handling
+try {
+  // ... existing code ...
+} catch (error) {
+  console.error('Error:', error);
+  throw error;
 }
