@@ -1,30 +1,22 @@
 import { NextResponse } from 'next/server';
-import { IntelligentAnalysisResult } from '@/app/types/domain';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { content } = await request.json() as { content: string };
-    
-    // Simulated analysis result
-    const result: IntelligentAnalysisResult = {
-      entities: [
-        {
-          name: "Example Bank",
-          type: "financial",
-          confidence: 0.95
-        }
-      ],
-      summary: "This appears to be a sophisticated phishing attempt targeting banking customers.",
-      recommendations: [
-        "Immediate takedown recommended",
-        "Monitor for similar domains",
-        "Alert affected customers"
-      ]
+    const { url, analysis } = await req.json();
+
+    if (!url || !analysis) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const result = {
+      entities: [],
+      summary: '',
+      recommendations: []
     };
 
     return NextResponse.json(result);
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error in intelligent analysis:', error);
-    return NextResponse.json({ error: 'Analysis failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 
