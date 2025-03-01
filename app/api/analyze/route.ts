@@ -555,7 +555,7 @@ async function analyzeUrl(url: string): Promise<DomainAnalysis> {
     const url = data.url;
     
     if (!url) {
-      return NextResponse.json({ error: 'URL não fornecida' }, { status: 400 });
+      return NextResponse.json({ error: 'URL não fornecida' }, { status: 400 }) as any;
     }
 
     console.log('Recebida requisição para analisar:', url);
@@ -564,13 +564,13 @@ async function analyzeUrl(url: string): Promise<DomainAnalysis> {
     try {
       new URL(url);
     } catch (e) {
-      return NextResponse.json({ error: 'URL inválida' }, { status: 400 });
+      return NextResponse.json({ error: 'URL inválida' }, { status: 400 }) as any;
     }
 
     // Extrair domínio
     const domain = extractDomain(url);
     if (!domain) {
-      return NextResponse.json({ error: 'Não foi possível extrair o domínio da URL' }, { status: 400 });
+      return NextResponse.json({ error: 'Não foi possível extrair o domínio da URL' }, { status: 400 }) as any;
     }
     console.log('Domínio extraído:', domain);
 
@@ -620,7 +620,7 @@ async function analyzeUrl(url: string): Promise<DomainAnalysis> {
     if (!ip) {
       return NextResponse.json({
         error: 'Não foi possível obter o IP do domínio após múltiplas tentativas'
-      }, { status: 400 });
+      }, { status: 400 }) as any;
     }
 
     // Consultar WHOIS com retry
@@ -725,32 +725,18 @@ async function analyzeUrl(url: string): Promise<DomainAnalysis> {
     }
 
     // Preparar resposta final com todas as informações
-    const response = {
-      domain,
+    const response: DomainAnalysis = {
+      url,
       ip,
       whois_info: whoisInfo,
       ip_info: {
+        ip,
         abuse_contact: abuseInfo.email,
-        company: {
-          name: hostingProvider,
-          abuse: {
-            ...abuseInfo,
-            email: abuseInfo.email !== 'N/A' ? abuseInfo.email : whoisInfo.registrar_abuse_contact_email
-          }
-        },
         asn: {
           asn: ipapiIsInfo?.asn?.asn || 'N/A',
           org: ipapiIsInfo?.asn?.org || 'N/A',
-          country: ipapiIsInfo?.asn?.country || 'N/A',
-          descr: ipapiIsInfo?.asn?.descr || 'N/A',
           route: ipapiIsInfo?.asn?.route || 'N/A',
-          type: ipapiIsInfo?.asn?.type || 'N/A',
-          abuser_score: ipapiIsInfo?.asn?.abuser_score || 'N/A',
-          domain: ipapiIsInfo?.asn?.domain || 'N/A',
-          created: ipapiIsInfo?.asn?.created || 'N/A',
-          updated: ipapiIsInfo?.asn?.updated || 'N/A',
-          rir: ipapiIsInfo?.asn?.rir || 'N/A',
-          whois: ipapiIsInfo?.asn?.whois || 'N/A'
+          country: ipapiIsInfo?.asn?.country || 'N/A'
         }
       },
       dns_records,
@@ -773,64 +759,184 @@ async function analyzeUrl(url: string): Promise<DomainAnalysis> {
       takedown_text: generateTakedownText({
         domain,
         ip,
-        ip_info: {
-          company: {
-            name: hostingProvider,
-            abuse: abuseInfo
-          },
-          asn: {
-            org: ipapiIsInfo?.asn?.org || hostingProvider
-          }
-        },
-        whois_info: whoisInfo,
         detected_brand: detectedBrand,
         brand_category: detectedBrand?.category || 'Unknown',
-        phishing_indicators: phishingIndicators
+        phishing_indicators
       })
     };
 
     console.log('Resposta final:', JSON.stringify(response, null, 2));
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erro na análise:', error);
     return NextResponse.json(
-      { error: error.message || 'Erro ao analisar domínio' },
+      { 
+        url: '',
+        ip: '',
+        whois_info: {},
+        ip_info: { ip: '' },
+        dns_records: {},
+        risk_score: 0,
+        phishing_indicators: [],
+        takedown_text: '',
+        error: error instanceof Error ? error.message : 'Erro ao analisar domínio'
+      },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request): Promise<NextResponse<DomainAnalysis>> {
+export async function POST(req: Request): Promise<NextResponse<DomainAnalysis>> {
   try {
-    const { url } = await request.json() as { url: string };
-    const analysis = await analyzeUrl(url);
-    return NextResponse.json(analysis);
+    const { url } = await req.json() as { url: string };
+    
+    if (!url) {
+      const errorResponse: DomainAnalysis = {
+        url: '',
+        ip: '',
+        whois_info: { domain_name: '' },
+        ip_info: { ip: '', abuse_contact: '', asn: { asn: '', org: '', route: '', country: '' } },
+        dns_records: {
+          a: [],
+          aaaa: [],
+          mx: [],
+          ns: [],
+          txt: [],
+          soa: [],
+          ptr: [],
+          srv: [],
+          cname: []
+        },
+        detected_brand: undefined,
+        brand_category: undefined,
+        risk_score: 0,
+        phishing_indicators: [],
+        takedown_text: ''
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
+
+    console.log('Recebida requisição para analisar:', url);
+    
+    // Validar URL
+    try {
+      new URL(url);
+    } catch (e) {
+      const errorResponse: DomainAnalysis = {
+        url: '',
+        ip: '',
+        whois_info: { domain_name: '' },
+        ip_info: { ip: '', abuse_contact: '', asn: { asn: '', org: '', route: '', country: '' } },
+        dns_records: {
+          a: [],
+          aaaa: [],
+          mx: [],
+          ns: [],
+          txt: [],
+          soa: [],
+          ptr: [],
+          srv: [],
+          cname: []
+        },
+        detected_brand: undefined,
+        brand_category: undefined,
+        risk_score: 0,
+        phishing_indicators: [],
+        takedown_text: ''
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
+
+    // Extrair domínio
+    const domain = extractDomain(url);
+    if (!domain) {
+      const errorResponse: DomainAnalysis = {
+        url: '',
+        ip: '',
+        whois_info: { domain_name: '' },
+        ip_info: { ip: '', abuse_contact: '', asn: { asn: '', org: '', route: '', country: '' } },
+        dns_records: {
+          a: [],
+          aaaa: [],
+          mx: [],
+          ns: [],
+          txt: [],
+          soa: [],
+          ptr: [],
+          srv: [],
+          cname: []
+        },
+        detected_brand: undefined,
+        brand_category: undefined,
+        risk_score: 0,
+        phishing_indicators: [],
+        takedown_text: ''
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
+    console.log('Domínio extraído:', domain);
+
+    // Análise do domínio
+    const ip = await getIpAddress(domain);
+    const whoisInfo = await getWhoisInfo(domain);
+    const dnsRecords = await getDnsRecords(domain);
+    const ipInfo = await getIpInfo(ip);
+    const detectedBrand = await detectBrand(domain);
+    const phishingIndicators = await analyzePhishingIndicators(domain);
+
+    const response: DomainAnalysis = {
+      url,
+      ip,
+      whois_info: whoisInfo,
+      ip_info: {
+        ip,
+        abuse_contact: ipInfo.abuse_contact || 'N/A',
+        asn: {
+          asn: ipInfo.asn?.asn || 'N/A',
+          org: ipInfo.asn?.org || 'N/A',
+          route: ipInfo.asn?.route || 'N/A',
+          country: ipInfo.asn?.country || 'N/A'
+        }
+      },
+      dns_records: dnsRecords,
+      detected_brand: detectedBrand,
+      brand_category: detectedBrand?.category,
+      risk_score: detectedBrand ? 0.9 : 0.5,
+      phishing_indicators,
+      takedown_text: generateTakedownText({
+        domain,
+        ip,
+        detected_brand: detectedBrand,
+        brand_category: detectedBrand?.category || 'Unknown',
+        phishing_indicators
+      })
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Erro no endpoint:', error);
-    return NextResponse.json({ error: 'Erro na análise' }, { status: 500 });
+    console.error('Erro na análise:', error);
+    const errorResponse: DomainAnalysis = {
+      url: '',
+      ip: '',
+      whois_info: { domain_name: '' },
+      ip_info: { ip: '', abuse_contact: '', asn: { asn: '', org: '', route: '', country: '' } },
+      dns_records: {
+        a: [],
+        aaaa: [],
+        mx: [],
+        ns: [],
+        txt: [],
+        soa: [],
+        ptr: [],
+        srv: [],
+        cname: []
+      },
+      detected_brand: undefined,
+      brand_category: undefined,
+      risk_score: 0,
+      phishing_indicators: [],
+      takedown_text: ''
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
-}
-
-async function getDnsRecords(domain: string): Promise<DnsRecords> {
-  // ... existing code ...
-}
-
-async function getWhoisInfo(domain: string): Promise<WhoisInfo> {
-  // ... existing code ...
-}
-
-async function getIpInfo(ip: string): Promise<IpInfo> {
-  // ... existing code ...
-}
-
-async function detectBrand(url: string, content: string): Promise<DetectedBrand | undefined> {
-  // ... existing code ...
-}
-
-// Remove unused variables and add proper error handling
-try {
-  // ... existing code ...
-} catch (error) {
-  console.error('Error:', error);
-  throw error;
 }

@@ -2,7 +2,16 @@ export interface DomainAnalysis {
   url: string;
   ip: string;
   whois_info: WhoisInfo;
-  ip_info: IpInfo;
+  ip_info: {
+    ip: string;
+    abuse_contact: string;
+    asn: {
+      asn: string;
+      org: string;
+      route: string;
+      country: string;
+    };
+  };
   dns_records: DnsRecords;
   detected_brand?: DetectedBrand;
   brand_category?: string;
@@ -12,35 +21,47 @@ export interface DomainAnalysis {
 }
 
 export interface WhoisInfo {
+  domain_name: string;
   registrar?: string;
-  creation_date?: string;
-  expiration_date?: string;
+  registrar_whois_server?: string;
+  registrar_url?: string;
   registrar_abuse_contact_email?: string;
+  registrar_abuse_contact_phone?: string;
+  creation_date?: string;
+  updated_date?: string;
+  expiration_date?: string;
+  name_servers?: string[];
+  status?: string[];
+  dnssec?: string;
 }
 
 export interface IpInfo {
   ip: string;
-  abuse_contact?: string;
-  asn?: AsnInfo;
-}
-
-export interface AsnInfo {
-  asn: string;
-  org: string;
-  route: string;
-  country: string;
+  abuse_contact: string;
+  asn?: {
+    asn: string;
+    org: string;
+    route: string;
+    country: string;
+  };
 }
 
 export interface DnsRecords {
-  A?: string[];
-  NS?: string[];
-  MX?: string[];
-  TXT?: string[];
+  a?: string[];
+  aaaa?: string[];
+  mx?: string[];
+  ns?: string[];
+  txt?: string[];
+  soa?: string[];
+  ptr?: string[];
+  srv?: string[];
+  cname?: string[];
 }
 
 export interface DetectedBrand {
   name: string;
   confidence: number;
+  category: string;
 }
 
 export interface TakedownRequest {
